@@ -1,8 +1,9 @@
 <script setup>
 import { useRouter } from 'vue-router'
 import { useAuthUser } from '@/composables/useAuthUser'
+import IconProfile from '@/components/icons/IconProfile.vue'
 const router = useRouter()
-const { user, clearUser } = useAuthUser()
+const { clearUser } = useAuthUser()
 
 const props = defineProps({
   titulo: { type: String, default: 'Mi Dashboard' },
@@ -31,12 +32,16 @@ function handleLogout() {
       <!-- Selector de endpoint -->
       <slot name="selector"></slot>
     </div>
-    <div class="flex items-center gap-2 flex-shrink-0">
+    <!-- Slot para notificaciones -->
+    <slot name="notificaciones"></slot>
+    <div class="flex items-center gap-2 flex-shrink-0 ml-4">
       <!-- Perfil de usuario -->
-      <div class="dropdown dropdown-end ml-2">
-        <label tabindex="0" class="btn btn-ghost flex items-center gap-2 cursor-pointer">
-          <span class="font-bold">{{ props.user }}</span>
+      <div class="dropdown dropdown-end z-40 relative flex items-center">
+        <label tabindex="0" class="btn btn-ghost flex items-center gap-1 px-2 py-1 cursor-pointer">
+          <IconProfile />
+          <span class="font-bold align-middle">{{ props.user }}</span>
         </label>
+
         <ul
           tabindex="0"
           class="mt-3 z-[1] p-2 shadow menu menu-sm dropdown-content bg-base-100 rounded-box w-52"
@@ -47,8 +52,6 @@ function handleLogout() {
           </li>
         </ul>
       </div>
-      <!-- Slot para notificaciones -->
-      <slot name="notificaciones"></slot>
     </div>
   </header>
 </template>

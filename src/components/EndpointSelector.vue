@@ -12,6 +12,15 @@ const emit = defineEmits(['update:modelValue'])
 const { endPointsKeys, getEndPointByKey, setActive, activeEndPoint } = useEndPoint()
 const selected = ref(props.modelValue || '')
 
+const url = computed(() => {
+  if (!activeEndPoint.value.base) return null
+  return activeEndPoint.value.base + '/api/view/configServer'
+})
+
+const loading = ref(false)
+const data = ref(null)
+const error = ref(null)
+
 watch(
   () => props.modelValue,
   (val) => {
@@ -33,15 +42,6 @@ watch(
   },
   { immediate: true },
 )
-
-const url = computed(() => {
-  if (!activeEndPoint.value.base) return null
-  return activeEndPoint.value.base + '/api/view/configServer'
-})
-
-const loading = ref(false)
-const data = ref(null)
-const error = ref(null)
 
 async function testConnection() {
   loading.value = true

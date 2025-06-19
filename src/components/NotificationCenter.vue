@@ -6,11 +6,17 @@ const { notifications, remove } = useNotification()
 const open = ref(false) // El panel inicia cerrado
 const unread = ref(0)
 const lastSeen = ref(Date.now())
+const autoCloseTimeouts = new Map()
 
 // Si se pasa la prop floating, el panel se comporta como overlay lateral
 const props = defineProps({
   floating: { type: Boolean, default: false },
 })
+
+// Estado para la posición del botón de notificación
+const btnPos = ref({ top: 80, right: 24 })
+let isDragging = false
+let dragOffset = { x: 0, y: 0 }
 
 // Actualiza el contador de no leídos cuando el panel está cerrado
 watch(
@@ -22,6 +28,30 @@ watch(
     } else {
       unread.value = notifs.filter((n) => n.id > lastSeen.value).length
     }
+  },
+  { immediate: true, deep: true },
+)
+
+watch(
+  notifications,
+  (notifs) => {
+    // Auto-cierre de notificaciones después de 3 segundos
+    notifs.forEach((n) => {
+      if (!autoCloseTimeouts.has(n.id)) {
+        const timeout = setTimeout(() => {
+          remove(n.id)
+          autoCloseTimeouts.delete(n.id)
+        }, 3000)
+        autoCloseTimeouts.set(n.id, timeout)
+      }
+    })
+    // Limpiar timeouts de notificaciones eliminadas
+    autoCloseTimeouts.forEach((timeout, id) => {
+      if (!notifs.find((n) => n.id === id)) {
+        clearTimeout(timeout)
+        autoCloseTimeouts.delete(id)
+      }
+    })
   },
   { immediate: true, deep: true },
 )
@@ -45,20 +75,64 @@ function getTitle(type) {
 }
 
 function handleClickOutside(event) {
-  if (open.value) {
-    const panel = document.getElementById('notification-panel')
-    const btn = document.getElementById('notification-btn')
-    if (panel && !panel.contains(event.target) && btn && !btn.contains(event.target)) {
-      open.value = false
-    }
+  if (!open.value) return
+  const panel = document.getElementById('notification-panel')
+  const btn = document.getElementById('notification-btn')
+  // Si el click no es dentro del panel ni del botón, cerrar
+  if (
+    (!panel || !panel.contains(event.target)) &&
+    (!btn || !btn.contains(event.target))
+  ) {
+    open.value = false
   }
 }
+
+function startDrag(e) {
+  isDragging = true
+  dragOffset = {
+    x: e.clientX,
+    y: e.clientY,
+  }
+  document.body.style.userSelect = 'none'
+}
+
+function onDrag(e) {
+  if (!isDragging) return
+  const dx = dragOffset.x - e.clientX
+  const dy = dragOffset.y - e.clientY
+  btnPos.value.top -= dy
+  btnPos.value.right += dx
+  dragOffset = { x: e.clientX, y: e.clientY }
+}
+
+function stopDrag() {
+  isDragging = false
+  document.body.style.userSelect = ''
+}
+
 onMounted(() => {
-  document.addEventListener('mousedown', handleClickOutside)
+  window.addEventListener('mousemove', onDrag)
+  window.addEventListener('mouseup', stopDrag)
+  // Restaurar posición del botón desde localStorage
+  const saved = localStorage.getItem('notifBtnPos')
+  if (saved) {
+    try {
+      const pos = JSON.parse(saved)
+      if (typeof pos.top === 'number' && typeof pos.right === 'number') {
+        btnPos.value = pos
+      }
+    } catch {}
+  }
 })
 onBeforeUnmount(() => {
   document.removeEventListener('mousedown', handleClickOutside)
+  window.removeEventListener('mousemove', onDrag)
+  window.removeEventListener('mouseup', stopDrag)
 })
+
+watch(btnPos, (val) => {
+  localStorage.setItem('notifBtnPos', JSON.stringify(val))
+}, { deep: true })
 </script>
 
 <template>
@@ -72,13 +146,14 @@ onBeforeUnmount(() => {
         <button class="btn btn-xs btn-ghost" @click="togglePanel" aria-label="Contraer">⮞</button>
       </div>
       <div
-        class="flex-1 overflow-y-auto p-3 flex flex-col gap-3 bg-gradient-to-b from-white via-gray-50 to-gray-100"
+        class="flex-1 overflow-y-auto p-6 flex flex-col gap-4 bg-gradient-to-b from-white via-gray-50 to-gray-100 divide-y divide-base-200"
+        style="margin: 24px 24px 32px 24px; border-radius: 0 0 0.75rem 0.75rem;"
       >
         <div
           v-for="n in notifications"
           :key="n.id"
           :class="[
-            'relative rounded-lg px-4 py-3 text-xs shadow-md min-h-[40px] max-w-full border flex flex-col justify-center',
+            'relative rounded-lg px-4 py-3 text-xs shadow-md min-h-[40px] max-w-full border flex flex-col justify-center bg-white',
             n.type === 'success' ? 'bg-green-50 text-green-900 border-green-300' : '',
             n.type === 'error' ? 'bg-red-50 text-red-900 border-red-300' : '',
             n.type === 'info' ? 'bg-blue-50 text-blue-900 border-blue-300' : '',
@@ -116,7 +191,8 @@ onBeforeUnmount(() => {
       class="btn btn-sm btn-primary m-0 relative flex items-center justify-center"
       @click="togglePanel"
       aria-label="Abrir notificaciones"
-      style="z-index: 30"
+      :style="{ zIndex: 30, position: 'absolute', top: btnPos.top + 'px', right: btnPos.right + 'px' }"
+      @mousedown.prevent="startDrag"
     >
       <span
         v-if="unread > 0"
@@ -133,7 +209,8 @@ onBeforeUnmount(() => {
       class="btn btn-sm btn-primary m-0 relative flex items-center justify-center"
       @click="togglePanel"
       aria-label="Abrir notificaciones"
-      style="z-index: 30"
+      :style="{ zIndex: 30, position: 'absolute', top: btnPos.top + 'px', right: btnPos.right + 'px' }"
+      @mousedown.prevent="startDrag"
     >
       <span
         v-if="unread > 0"

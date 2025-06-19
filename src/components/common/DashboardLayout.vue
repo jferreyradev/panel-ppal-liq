@@ -7,6 +7,7 @@ import NotificationCenter from '../NotificationCenter.vue'
 import { ref } from 'vue'
 import { useAuthUser } from '@/composables/useAuthUser'
 import { useRouter } from 'vue-router'
+import DashboardMain from './DashboardMain.vue'
 
 const selectedEndpoint = ref('')
 const { user, clearUser } = useAuthUser()
@@ -42,9 +43,7 @@ function cancelLogout() {
     </DashboardHeader>
     <div class="flex flex-1 overflow-hidden">
       <DashboardSidebar @logout="logout" />
-      <main class="flex-1 overflow-auto p-6 bg-base-200">
-        <slot />
-      </main>
+      <DashboardMain />
     </div>
     <DashboardFooter />
     <div
